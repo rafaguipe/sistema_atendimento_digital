@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel da Secretaria</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f9;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+}
+
+.board {
+  display: flex;
+  gap: 15px;
+}
+
+.column {
+  flex: 1;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.column h2 {
+  text-align: center;
+}
+
+.card {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-left: 5px solid #ccc;
+}
+
+.novo { border-color: #e74c3c; }
+.atendendo { border-color: #f1c40f; }
+.finalizado { border-color: #2ecc71; opacity: 0.7; }
+
+button {
+  margin-top: 5px;
+  margin-right: 5px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-atender { background: #3498db; color: white; }
+.btn-finalizar { background: #2ecc71; color: white; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.counter {
+  font-size: 14px;
+  color: #555;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🏥 Painel da Secretaria</h1>
+
+<div class="topbar">
+  <div class="counter" id="contador"></div>
+</div>
+
+<div class="board">
+
+  <div class="column">
+    <h2>🔴 Novos</h2>
+    <div id="novos"></div>
+  </div>
+
+  <div class="column">
+    <h2>🟡 Em Atendimento</h2>
+    <div id="atendendo"></div>
+  </div>
+
+  <div class="column">
+    <h2>🟢 Finalizados</h2>
+    <div id="finalizados"></div>
+  </div>
+
+</div>
+
+<script>
+const API = "http://192.168.15.33:1880";
+
+async function carregarFila() {
+  try {
+    const res = await fetch(API + "/fila");
+    const data = await res.json();
+
+    console.log("API:", data);
+
+    render("novos", data.novos, "novo");
+    render("atendendo", data.atendendo, "atendendo");
+    render("finalizados", data.finalizados.slice(0, 10), "finalizado");
+
+    atualizarContador(data);
+
+  } catch (e) {
+    console.error("Erro ao carregar:", e);
+  }
+}
+
+function render(containerId, lista, tipoClasse) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+
+  if (!lista || !Array.isArray(lista)) return;
+
+  lista.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "card " + tipoClasse;
+
+    div.innerHTML = `
+      <b>${item.nome}</b><br>
+      📞 ${item.telefone}<br>
+      📝 ${item.mensagem}<br>
+      📌 ${item.tipo}<br>
+      🕒 ${formatarData(item.data)}
+    `;
+
+    if (tipoClasse === "novo") {
+      const btn = document.createElement("button");
+      btn.innerText = "Atender";
+      btn.className = "btn-atender";
+      btn.onclick = () => atender(item.id);
+      div.appendChild(btn);
+    }
+
+    if (tipoClasse !== "finalizado") {
+      const btnFinalizar = document.createElement("button");
+      btnFinalizar.innerText = "Finalizar";
+      btnFinalizar.className = "btn-finalizar";
+      btnFinalizar.onclick = () => finalizar(item.id);
+      div.appendChild(btnFinalizar);
+    }
+
+    container.appendChild(div);
+  });
+}
+
+async function atender(id) {
+  await fetch(API + "/atender", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  });
+  carregarFila();
+}
+
+async function finalizar(id) {
+  await fetch(API + "/finalizar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  });
+  carregarFila();
+}
+
+function formatarData(ts) {
+  try {
+    let d = typeof ts === "number" ? new Date(ts) : new Date(ts);
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+function atualizarContador(data) {
+  const total =
+    (data.novos?.length || 0) +
+    (data.atendendo?.length || 0);
+
+  document.getElementById("contador").innerText =
+    `Atendimentos em aberto: ${total}`;
+}
+
+// auto refresh
+setInterval(carregarFila, 3000);
+
+carregarFila();
+</script>
+
+</body>
+</html>
