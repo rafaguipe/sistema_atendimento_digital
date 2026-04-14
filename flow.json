@@ -1,0 +1,509 @@
+[
+    {
+        "id": "03a45a332f1f80c7",
+        "type": "tab",
+        "label": "sist_atend_digital",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "fdbf08ecd7d31b82",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/whatsapp",
+        "method": "post",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "eb7244223b7b3d96",
+                "3691b2e6353a0ee3"
+            ]
+        ]
+    },
+    {
+        "id": "eb7244223b7b3d96",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "classificar",
+        "func": "let msgTexto = (msg.payload.mensagem || \"\").toLowerCase();\n\nlet tipo = \"outros\";\n\nif (msgTexto.includes(\"consulta\")) {\n    tipo = \"consulta\";\n} else if (msgTexto.includes(\"exame\")) {\n    tipo = \"exame\";\n} else if (msgTexto.includes(\"retorno\")) {\n    tipo = \"retorno\";\n}\n\nmsg.tipo = tipo;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 120,
+        "wires": [
+            [
+                "2016e5fd07a7a7b3"
+            ]
+        ]
+    },
+    {
+        "id": "2016e5fd07a7a7b3",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "salvar_na_fila",
+        "func": "// 🔥 função de padronizar telefone\nfunction limparTelefone(tel) {\n    if (!tel) return \"\";\n    return tel.toString().replace(/\\D/g, '');\n}\n\nlet fila = flow.get(\"fila\") || [];\n\n// normaliza telefone recebido\nlet telefone = limparTelefone(msg.payload.telefone);\n\n// garante que toda a fila está padronizada\nfila = fila.map(item => {\n    item.telefone = limparTelefone(item.telefone);\n    return item;\n});\n\n// verifica se já existe atendimento ativo\nlet existente = fila.find(item => \n    item.telefone === telefone && item.status !== \"finalizado\"\n);\n\nif (existente) {\n    msg.payload = {\n        status: \"erro\",\n        mensagem: \"Você já possui um atendimento em andamento.\"\n    };\n    return msg;\n}\n\n// cria novo atendimento\nlet novoItem = {\n    id: Date.now(),\n    nome: msg.payload.nome,\n    telefone: telefone, // já padronizado\n    mensagem: msg.payload.mensagem,\n    tipo: msg.tipo,\n    status: \"novo\",\n    data: Date.now()\n};\n\nfila.push(novoItem);\n\n// salva\nflow.set(\"fila\", fila);\n\nmsg.payload = {\n    status: \"ok\",\n    mensagem: \"Atendimento aberto com sucesso\",\n    tipo: msg.tipo,\n    id: novoItem.id\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 120,
+        "wires": [
+            [
+                "53cfe917dba00aca",
+                "df57b6d5b2e74da4"
+            ]
+        ]
+    },
+    {
+        "id": "53cfe917dba00aca",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 910,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "df57b6d5b2e74da4",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 8",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 920,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "fe3d2aa67d77d052",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/fila",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 360,
+        "y": 240,
+        "wires": [
+            [
+                "73ea25c0fb889819"
+            ]
+        ]
+    },
+    {
+        "id": "73ea25c0fb889819",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "function 6",
+        "func": "let fila = flow.get(\"fila\") || [];\n\nlet resposta = {\n    novos: [],\n    atendendo: [],\n    finalizados: []\n};\n\nfila.forEach(item => {\n    if (item.status === \"novo\") {\n        resposta.novos.push(item);\n    } else if (item.status === \"atendendo\") {\n        resposta.atendendo.push(item);\n    } else if (item.status === \"finalizado\") {\n        resposta.finalizados.push(item);\n    }\n});\n\n// ordenar\nresposta.novos.sort((a, b) => Number(b.data) - Number(a.data));\nresposta.atendendo.sort((a, b) => Number(b.data) - Number(a.data));\nresposta.finalizados.sort((a, b) => Number(b.data) - Number(a.data));\n\nmsg.payload = resposta;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 240,
+        "wires": [
+            [
+                "7823bea452c45e0a",
+                "115c9835883c7a27"
+            ]
+        ]
+    },
+    {
+        "id": "7823bea452c45e0a",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 10",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "115c9835883c7a27",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "3691b2e6353a0ee3",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 13",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 510,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "2a23b7cf2463f015",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/atender",
+        "method": "post",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 370,
+        "y": 380,
+        "wires": [
+            [
+                "c0c95b4bb889983c"
+            ]
+        ]
+    },
+    {
+        "id": "c0c95b4bb889983c",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "atendimento",
+        "func": "let fila = flow.get(\"fila\") || [];\n\nlet id = msg.payload.id;\n\nfila = fila.map(item => {\n    if (item.id == id) {\n        item.status = \"atendendo\";\n    }\n    return item;\n});\n\nflow.set(\"fila\", fila);\n\nmsg.payload = { status: \"atendendo\" };\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 380,
+        "wires": [
+            [
+                "1bf4aa8d21d4742b",
+                "b75811d1bb02d9fa"
+            ]
+        ]
+    },
+    {
+        "id": "1bf4aa8d21d4742b",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "b75811d1bb02d9fa",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 14",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "93f13af79e0be1d8",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/finalizar",
+        "method": "post",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 370,
+        "y": 520,
+        "wires": [
+            [
+                "0d4e13c15e270cb0"
+            ]
+        ]
+    },
+    {
+        "id": "0d4e13c15e270cb0",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "finalizar",
+        "func": "let fila = flow.get(\"fila\") || [];\n\nlet id = msg.payload.id;\n\nlet encontrado = false;\n\nfila = fila.map(item => {\n    if (item.id == id) {\n        item.status = \"finalizado\";\n        encontrado = true;\n    }\n    return item;\n});\n\nflow.set(\"fila\", fila);\n\nif (encontrado) {\n    msg.payload = {\n        status: \"ok\",\n        id: id,\n        mensagem: \"Atendimento finalizado\"\n    };\n} else {\n    msg.payload = {\n        status: \"erro\",\n        id: id,\n        mensagem: \"ID não encontrado\"\n    };\n}\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 520,
+        "wires": [
+            [
+                "e45192b2c4fc43d5",
+                "98a18e24ecf0606f"
+            ]
+        ]
+    },
+    {
+        "id": "e45192b2c4fc43d5",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "98a18e24ecf0606f",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 15",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "d95601a0204f17f5",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/historico",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 370,
+        "y": 640,
+        "wires": [
+            [
+                "919a6f18acda2815"
+            ]
+        ]
+    },
+    {
+        "id": "919a6f18acda2815",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "historico",
+        "func": "let fila = flow.get(\"fila\") || [];\n\nlet telefone = msg.req.query.telefone;\n\nif (!telefone) {\n    msg.payload = {\n        status: \"erro\",\n        mensagem: \"Telefone não informado\"\n    };\n    return msg;\n}\n\n// filtra pelo telefone\nlet historico = fila.filter(item => item.telefone == telefone);\n\n// ordena do mais recente para o mais antigo\nhistorico.sort((a, b) => b.data - a.data);\n\nmsg.payload = {\n    status: \"ok\",\n    total: historico.length,\n    historico: historico\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 640,
+        "wires": [
+            [
+                "d54034c21784cb77",
+                "21c24a17d040e018"
+            ]
+        ]
+    },
+    {
+        "id": "d54034c21784cb77",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "21c24a17d040e018",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 16",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "8d0bce894e1779ca",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/abertos",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 370,
+        "y": 780,
+        "wires": [
+            [
+                "81b9053bab80d6ba"
+            ]
+        ]
+    },
+    {
+        "id": "81b9053bab80d6ba",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "abertos",
+        "func": "// 🔥 função para padronizar telefone\nfunction limparTelefone(tel) {\n    if (!tel) return \"\";\n    return tel.toString().replace(/\\D/g, '');\n}\n\nlet fila = flow.get(\"fila\") || [];\n\n// pega telefone da query\nlet telefone = msg.req.query.telefone;\n\n// valida\nif (!telefone) {\n    msg.payload = {\n        status: \"erro\",\n        mensagem: \"Telefone não informado\"\n    };\n    return msg;\n}\n\n// normaliza telefone recebido\ntelefone = limparTelefone(telefone);\n\n// filtra apenas:\n// - mesmo telefone\n// - não finalizado\nlet abertos = fila.filter(item => \n    limparTelefone(item.telefone) === telefone &&\n    item.status !== \"finalizado\"\n);\n\n// ordena (mais recente primeiro)\nabertos.sort((a, b) => Number(b.data) - Number(a.data));\n\nmsg.payload = {\n    status: \"ok\",\n    total: abertos.length,\n    abertos: abertos\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 780,
+        "wires": [
+            [
+                "62ee7892c20a866d",
+                "5a037c54fd6f0696"
+            ]
+        ]
+    },
+    {
+        "id": "62ee7892c20a866d",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "5a037c54fd6f0696",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 17",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "8cf12c6da6838f7c",
+        "type": "http in",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "url": "/finalizados",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 380,
+        "y": 900,
+        "wires": [
+            [
+                "95574ca05e2b02b2"
+            ]
+        ]
+    },
+    {
+        "id": "95574ca05e2b02b2",
+        "type": "function",
+        "z": "03a45a332f1f80c7",
+        "name": "finalizados",
+        "func": "let fila = flow.get(\"fila\") || [];\n\n// filtra apenas finalizados\nlet finalizados = fila.filter(item => item.status === \"finalizado\");\n\n// ordena (mais recente primeiro)\nfinalizados.sort((a, b) => b.data - a.data);\n\nmsg.payload = {\n    status: \"ok\",\n    total: finalizados.length,\n    finalizados: finalizados\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 900,
+        "wires": [
+            [
+                "601b868f4abfc652",
+                "c86c68aab8e895f5"
+            ]
+        ]
+    },
+    {
+        "id": "601b868f4abfc652",
+        "type": "http response",
+        "z": "03a45a332f1f80c7",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 670,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "c86c68aab8e895f5",
+        "type": "debug",
+        "z": "03a45a332f1f80c7",
+        "name": "debug 18",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 840,
+        "wires": []
+    }
+]
