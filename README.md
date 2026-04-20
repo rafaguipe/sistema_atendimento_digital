@@ -252,7 +252,11 @@ Este sistema transforma:
 ✅ fluxo estruturado com rastreabilidade
 
 ---
+## Youtube
+[Como funciona este sistema](https://youtu.be/Mt_wsOmEtYQ)
 
+
+---
 ## 👨‍💻 Autor
 
 Projeto desenvolvido por Rafael Guimarães Pereira como exemplo de implementação ágil.
